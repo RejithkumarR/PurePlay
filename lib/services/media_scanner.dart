@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -9,15 +10,17 @@ import '../utils/constants.dart';
 
 class MediaScanner {
   static const MethodChannel _channel =
-      MethodChannel('com.pureplay.localplayer/media_scanner');
+      MethodChannel(
+    'com.pureplay.localplayer/media_scanner',
+  );
 
-  /// Requests the correct Android media permissions.
   static Future<bool> requestPermissions() async {
     if (!Platform.isAndroid) {
       return true;
     }
 
-    final sdk = (await DeviceInfoPlugin().androidInfo).version.sdkInt;
+    final sdk =
+        (await DeviceInfoPlugin().androidInfo).version.sdkInt;
 
     if (sdk >= 33) {
       final result = await [
@@ -34,34 +37,20 @@ class MediaScanner {
       return videoGranted && audioGranted;
     }
 
-    final status = await Permission.storage.request();
+    final status =
+        await Permission.storage.request();
 
     return status.isGranted;
   }
 
-  /// Scans Android MediaStore for all indexed local videos and audio files.
-  ///
-  /// This does NOT scan only predefined folders.
-  ///
-  /// Android MediaStore can return media from:
-  /// - DCIM
-  /// - Movies
-  /// - Download
-  /// - WhatsApp
-  /// - Telegram
-  /// - Camera
-  /// - Screen recordings
-  /// - Music
-  /// - Recordings
-  /// - Podcasts
-  /// - Other folders indexed by Android
   static Future<List<MediaFile>> scanStorage() async {
     if (!Platform.isAndroid) {
       return [];
     }
 
     try {
-      final result = await _channel.invokeMethod<List<dynamic>>(
+      final result =
+          await _channel.invokeMethod<List<dynamic>>(
         'scanMedia',
       );
 
@@ -77,38 +66,54 @@ class MediaScanner {
           continue;
         }
 
-        final map = Map<String, dynamic>.from(item);
+        final map =
+            Map<String, dynamic>.from(item);
 
-        final path = map['path']?.toString() ?? '';
-        final uri = map['uri']?.toString() ?? '';
-        final title = map['title']?.toString() ?? 'Unknown';
+        final path =
+            map['path']?.toString() ?? '';
+
+        final uri =
+            map['uri']?.toString() ?? '';
+
+        final title =
+            map['title']?.toString() ??
+                'Unknown';
+
         final folderName =
-            map['folderName']?.toString() ?? 'Internal storage';
+            map['folderName']?.toString() ??
+                'Internal storage';
 
-        final size = _toInt(map['size']);
-        final modifiedMillis = _toInt(map['modified']);
-        final typeString = map['type']?.toString() ?? '';
+        final size =
+            _toInt(map['size']);
 
-        final mediaPath = uri.isNotEmpty ? uri : path;
+        final modified =
+            _toInt(map['modified']);
+
+        final typeString =
+            map['type']?.toString() ?? '';
+
+        // IMPORTANT:
+        // Prefer MediaStore URI on modern Android.
+        final mediaPath =
+            uri.isNotEmpty ? uri : path;
 
         if (mediaPath.isEmpty) {
           continue;
         }
 
-        final uniqueKey = uri.isNotEmpty ? uri : mediaPath;
+        final uniqueKey =
+            uri.isNotEmpty ? uri : mediaPath;
 
         if (!seen.add(uniqueKey)) {
           continue;
         }
 
-        final MediaType? type;
+        MediaType? type;
 
         if (typeString == 'video') {
           type = MediaType.video;
         } else if (typeString == 'audio') {
           type = MediaType.audio;
-        } else {
-          type = _detectTypeFromFileName(title);
         }
 
         if (type == null) {
@@ -121,34 +126,41 @@ class MediaScanner {
             title: title,
             folderName: folderName,
             sizeInBytes: size,
-            modifiedDate: modifiedMillis > 0
-                ? DateTime.fromMillisecondsSinceEpoch(
-                    modifiedMillis,
-                  )
-                : DateTime.fromMillisecondsSinceEpoch(0),
+            modifiedDate:
+                modified > 0
+                    ? DateTime
+                        .fromMillisecondsSinceEpoch(
+                            modified,
+                          )
+                    : DateTime.fromMillisecondsSinceEpoch(
+                        0,
+                      ),
             type: type,
           ),
         );
       }
 
       mediaFiles.sort(
-        (a, b) => a.title.toLowerCase().compareTo(
+        (a, b) => a.title
+            .toLowerCase()
+            .compareTo(
               b.title.toLowerCase(),
             ),
       );
 
       return mediaFiles;
     } on PlatformException catch (e) {
-      // Keep the application alive if Android MediaStore fails.
-      // This also makes debugging easier through logcat.
-      print(
+      debugPrint(
         'PurePlay MediaStore error: '
         '${e.code}: ${e.message}',
       );
 
       return [];
     } catch (e) {
-      print('PurePlay media scanner error: $e');
+      debugPrint(
+        'PurePlay media scanner error: $e',
+      );
+
       return [];
     }
   }
@@ -162,28 +174,9 @@ class MediaScanner {
       return value.toInt();
     }
 
-    return int.tryParse(value?.toString() ?? '') ?? 0;
-  }
-
-  static MediaType? _detectTypeFromFileName(String fileName) {
-    final lower = fileName.toLowerCase();
-
-    final video = SupportedFormats.video.any(
-      (extension) => lower.endsWith('.$extension'),
-    );
-
-    if (video) {
-      return MediaType.video;
-    }
-
-    final audio = SupportedFormats.audio.any(
-      (extension) => lower.endsWith('.$extension'),
-    );
-
-    if (audio) {
-      return MediaType.audio;
-    }
-
-    return null;
+    return int.tryParse(
+          value?.toString() ?? '',
+        ) ??
+        0;
   }
 }
