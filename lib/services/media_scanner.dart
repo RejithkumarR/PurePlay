@@ -1,75 +1,189 @@
 import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../models/media_file.dart';
 import '../utils/constants.dart';
 
 class MediaScanner {
+  static const MethodChannel _channel =
+      MethodChannel('com.pureplay.localplayer/media_scanner');
+
+  /// Requests the correct Android media permissions.
   static Future<bool> requestPermissions() async {
-    if (!Platform.isAndroid) return true;
-    final sdk = (await DeviceInfoPlugin().androidInfo).version.sdkInt;
-    if (sdk >= 33) {
-      final result = await [Permission.videos, Permission.audio].request();
-      return result.values.every((status) => status.isGranted);
+    if (!Platform.isAndroid) {
+      return true;
     }
+
+    final sdk = (await DeviceInfoPlugin().androidInfo).version.sdkInt;
+
+    if (sdk >= 33) {
+      final result = await [
+        Permission.videos,
+        Permission.audio,
+      ].request();
+
+      final videoGranted =
+          result[Permission.videos]?.isGranted ?? false;
+
+      final audioGranted =
+          result[Permission.audio]?.isGranted ?? false;
+
+      return videoGranted && audioGranted;
+    }
+
     final status = await Permission.storage.request();
+
     return status.isGranted;
   }
 
+  /// Scans Android MediaStore for all indexed local videos and audio files.
+  ///
+  /// This does NOT scan only predefined folders.
+  ///
+  /// Android MediaStore can return media from:
+  /// - DCIM
+  /// - Movies
+  /// - Download
+  /// - WhatsApp
+  /// - Telegram
+  /// - Camera
+  /// - Screen recordings
+  /// - Music
+  /// - Recordings
+  /// - Podcasts
+  /// - Other folders indexed by Android
   static Future<List<MediaFile>> scanStorage() async {
-    final results = <MediaFile>[];
-    final roots = <Directory>[
-      Directory('/storage/emulated/0/Download'),
-      Directory('/storage/emulated/0/Movies'),
-      Directory('/storage/emulated/0/Music'),
-      Directory('/storage/emulated/0/DCIM'),
-      Directory('/storage/emulated/0/Pictures'),
-      Directory('/storage/emulated/0/Recordings'),
-      Directory('/storage/emulated/0/Video'),
-      Directory('/storage/emulated/0/Audio'),
-    ];
-
-    final seen = <String>{};
-    for (final root in roots) {
-      if (!await root.exists()) continue;
-      try {
-        await for (final entity
-            in root.list(recursive: true, followLinks: false)) {
-          if (entity is! File) continue;
-          final lower = entity.path.toLowerCase();
-          final dot = lower.lastIndexOf('.');
-          if (dot < 0) continue;
-          final ext = lower.substring(dot + 1);
-          final type = SupportedFormats.video.contains(ext)
-              ? MediaType.video
-              : SupportedFormats.audio.contains(ext)
-                  ? MediaType.audio
-                  : null;
-          if (type == null || !seen.add(lower)) continue;
-          try {
-            final stat = await entity.stat();
-            final title = entity.uri.pathSegments.isNotEmpty
-                ? entity.uri.pathSegments.last
-                : entity.path;
-            final parent =
-                entity.parent.path.split(Platform.pathSeparator).last;
-            results.add(MediaFile(
-              path: entity.path,
-              title: title,
-              folderName: parent.isEmpty ? 'Internal storage' : parent,
-              sizeInBytes: stat.size,
-              modifiedDate: stat.modified,
-              type: type,
-            ));
-          } catch (_) {}
-        }
-      } catch (_) {}
+    if (!Platform.isAndroid) {
+      return [];
     }
 
-    results
-        .sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
-    return results;
+    try {
+      final result = await _channel.invokeMethod<List<dynamic>>(
+        'scanMedia',
+      );
+
+      if (result == null || result.isEmpty) {
+        return [];
+      }
+
+      final mediaFiles = <MediaFile>[];
+      final seen = <String>{};
+
+      for (final item in result) {
+        if (item is! Map) {
+          continue;
+        }
+
+        final map = Map<String, dynamic>.from(item);
+
+        final path = map['path']?.toString() ?? '';
+        final uri = map['uri']?.toString() ?? '';
+        final title = map['title']?.toString() ?? 'Unknown';
+        final folderName =
+            map['folderName']?.toString() ?? 'Internal storage';
+
+        final size = _toInt(map['size']);
+        final modifiedMillis = _toInt(map['modified']);
+        final typeString = map['type']?.toString() ?? '';
+
+        final mediaPath = uri.isNotEmpty ? uri : path;
+
+        if (mediaPath.isEmpty) {
+          continue;
+        }
+
+        final uniqueKey = uri.isNotEmpty ? uri : mediaPath;
+
+        if (!seen.add(uniqueKey)) {
+          continue;
+        }
+
+        final MediaType? type;
+
+        if (typeString == 'video') {
+          type = MediaType.video;
+        } else if (typeString == 'audio') {
+          type = MediaType.audio;
+        } else {
+          type = _detectTypeFromFileName(title);
+        }
+
+        if (type == null) {
+          continue;
+        }
+
+        mediaFiles.add(
+          MediaFile(
+            path: mediaPath,
+            title: title,
+            folderName: folderName,
+            sizeInBytes: size,
+            modifiedDate: modifiedMillis > 0
+                ? DateTime.fromMillisecondsSinceEpoch(
+                    modifiedMillis,
+                  )
+                : DateTime.fromMillisecondsSinceEpoch(0),
+            type: type,
+          ),
+        );
+      }
+
+      mediaFiles.sort(
+        (a, b) => a.title.toLowerCase().compareTo(
+              b.title.toLowerCase(),
+            ),
+      );
+
+      return mediaFiles;
+    } on PlatformException catch (e) {
+      // Keep the application alive if Android MediaStore fails.
+      // This also makes debugging easier through logcat.
+      print(
+        'PurePlay MediaStore error: '
+        '${e.code}: ${e.message}',
+      );
+
+      return [];
+    } catch (e) {
+      print('PurePlay media scanner error: $e');
+      return [];
+    }
+  }
+
+  static int _toInt(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static MediaType? _detectTypeFromFileName(String fileName) {
+    final lower = fileName.toLowerCase();
+
+    final video = SupportedFormats.video.any(
+      (extension) => lower.endsWith('.$extension'),
+    );
+
+    if (video) {
+      return MediaType.video;
+    }
+
+    final audio = SupportedFormats.audio.any(
+      (extension) => lower.endsWith('.$extension'),
+    );
+
+    if (audio) {
+      return MediaType.audio;
+    }
+
+    return null;
   }
 }
