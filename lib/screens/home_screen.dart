@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/media_file.dart';
 import '../services/media_scanner.dart';
@@ -69,6 +70,14 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  Future<void> _exitApp() async {
+    if (!mounted) return;
+    final shouldExit = await confirmExit(context);
+    if (shouldExit && mounted) {
+      await SystemNavigator.pop();
+    }
+  }
+
   @override
   void dispose() {
     _tabs.dispose();
@@ -80,8 +89,8 @@ class _HomeScreenState extends State<HomeScreen>
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
-        if (!didPop && await confirmExit(context) && context.mounted) {
-          Navigator.of(context).pop();
+        if (!didPop) {
+          await _exitApp();
         }
       },
       child: Scaffold(
@@ -151,12 +160,25 @@ class _HomeScreenState extends State<HomeScreen>
                   onTap: () async {
                     await PreferencesService.addRecent(media.path);
                     if (!mounted) return;
-                    Navigator.push(
+                    if (type == MediaType.video) {
+                      Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => type == MediaType.video
-                                ? VideoPlayerScreen(media: media)
-                                : AudioPlayerScreen(media: media)));
+                          builder: (_) => VideoPlayerScreen(
+                            media: media,
+                            playlist: items,
+                            initialIndex: i,
+                          ),
+                        ),
+                      );
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AudioPlayerScreen(media: media),
+                        ),
+                      );
+                    }
                   });
             }));
   }
