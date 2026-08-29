@@ -4,10 +4,10 @@ Future<bool> confirmExit(BuildContext context, {bool playback = false}) async {
   final result = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text(playback ? 'Stop playback?' : 'Exit PurePlay?'),
+      title: Text(playback ? 'Stop playback?' : 'Exit?'),
       content: Text(playback
           ? 'Stop the current media and close the player?'
-          : 'Are you sure you want to exit PurePlay?'),
+          : 'Are you sure you want to exit?'),
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context, false),
