@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -149,14 +149,14 @@ class MediaScanner {
 
       return mediaFiles;
     } on PlatformException catch (e) {
-      print(
+      debugPrint(
         'PurePlay MediaStore error: '
         '${e.code}: ${e.message}',
       );
 
       return [];
     } catch (e) {
-      print(
+      debugPrint(
         'PurePlay media scanner error: $e',
       );
 
