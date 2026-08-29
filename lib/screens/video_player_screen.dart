@@ -41,7 +41,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         ? [widget.media]
         : List<MediaFile>.unmodifiable(widget.playlist);
 
-    _currentIndex = widget.initialIndex.clamp(0, _playlist.length - 1);
+    _currentIndex = widget.initialIndex
+        .clamp(0, _playlist.length - 1)
+        .toInt();
     _currentMedia = _playlist[_currentIndex];
 
     _openCurrentVideo();
@@ -53,10 +55,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       Media(_currentMedia.path),
       play: true,
     );
-
-    if (mounted) {
-      setState(() {});
-    }
   }
 
   Future<void> _playNext() async {
@@ -131,8 +129,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         ),
       );
     } else if (_qualityMode == 2) {
-      // Display-side enhancement: contrast/sharpness-style compensation.
-      // This does not create missing source detail; it is intentionally lightweight and offline.
       child = ColorFiltered(
         colorFilter: const ColorFilter.matrix(<double>[
           1.08,
