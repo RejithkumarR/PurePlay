@@ -141,14 +141,13 @@ class MediaScanner {
     } on PlatformException catch (e) {
       // Keep the application alive if Android MediaStore fails.
       // This also makes debugging easier through logcat.
-      print(
-        'PurePlay MediaStore error: '
-        '${e.code}: ${e.message}',
+      stderr.writeln(
+        'PurePlay MediaStore error: ${e.code}: ${e.message}',
       );
 
       return [];
     } catch (e) {
-      print('PurePlay media scanner error: $e');
+      stderr.writeln('PurePlay media scanner error: $e');
       return [];
     }
   }
