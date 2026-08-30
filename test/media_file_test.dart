@@ -8,7 +8,7 @@ void main() {
 
     test('formats bytes correctly', () {
       expect(
-        const MediaFile(
+        MediaFile(
           path: '/storage/emulated/0/video.mp4',
           title: 'video.mp4',
           folderName: 'Movies',
@@ -21,7 +21,7 @@ void main() {
       );
 
       expect(
-        const MediaFile(
+        MediaFile(
           path: '/storage/emulated/0/video.mp4',
           title: 'video.mp4',
           folderName: 'Movies',
@@ -35,7 +35,7 @@ void main() {
     });
 
     test('extracts and uppercases file extension', () {
-      const media = MediaFile(
+      final media = MediaFile(
         path: '/storage/emulated/0/movie.mkv',
         title: 'movie.mkv',
         folderName: 'Movies',
@@ -49,7 +49,7 @@ void main() {
     });
 
     test('returns empty extension when title has no extension', () {
-      const media = MediaFile(
+      final media = MediaFile(
         path: '/storage/emulated/0/recording',
         title: 'recording',
         folderName: 'Music',
