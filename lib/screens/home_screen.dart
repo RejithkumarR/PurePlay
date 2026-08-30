@@ -90,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   String _displayFolderName(String path) {
-    final clean = path.replaceAll('\\', '/').trimRight('/');
+    final clean = path.replaceAll('\\', '/').replaceFirst(RegExp(r'/+$'), '');
     if (clean.isEmpty) return 'Internal storage';
     return clean.split('/').lastWhere((part) => part.isNotEmpty, orElse: () => 'Internal storage');
   }
@@ -104,11 +104,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       return _ascending ? comparison : -comparison;
     });
     return result;
-  }
-
-  Future<void> _toggleFavorite(MediaFile media) async {
-    await PreferencesService.toggleFavorite(media.path);
-    if (mounted) setState(() => _favorites = {..._favorites}..toggle(media.path));
   }
 
   Future<void> _exitApp() async {
@@ -308,7 +303,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     if (items.isEmpty) return const Center(child: Text('No files in this folder'));
     return RefreshIndicator(onRefresh: _load, child: _viewMode == _ViewMode.grid
         ? GridView.builder(padding: const EdgeInsets.all(14), gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 210, childAspectRatio: .92, crossAxisSpacing: 10, mainAxisSpacing: 10), itemCount: items.length, itemBuilder: (_, i) => _fileCard(items, i))
-        : ListView.separated(padding: const EdgeInsets.symmetric(vertical: 8), itemCount: items.length, separatorBuilder: (_, __) => const Divider(height: 1, indent: 72), itemBuilder: (_, i) => _fileListTile(items, i)));
+        : ListView.separated(padding: const EdgeInsets.symmetric(vertical: 8), itemCount: items.length, separatorBuilder: (_, __) => const Divider(height: 1, indent: 72), itemBuilder: (_, i) => _fileListTile(items, i));
   }
 
   Widget _fileCard(List<MediaFile> items, int index) {
@@ -320,8 +315,4 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     final media = items[index];
     return ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), leading: CircleAvatar(backgroundColor: AppColors.surface2, child: Icon(media.type == MediaType.video ? Icons.movie_rounded : Icons.music_note_rounded, color: AppColors.accent)), title: Text(media.title, maxLines: 1, overflow: TextOverflow.ellipsis), subtitle: Text('${media.formattedSize} • ${DateFormat('dd MMM yyyy').format(media.modifiedDate)}'), trailing: IconButton(icon: const Icon(Icons.more_vert_rounded), onPressed: () => _fileMenu(media)), onTap: () => _openMedia(items, index), onLongPress: () => _fileMenu(media));
   }
-}
-
-extension on Set<String> {
-  void toggle(String value) => contains(value) ? remove(value) : add(value);
 }
