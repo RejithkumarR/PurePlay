@@ -12,8 +12,9 @@ permissions:
   contents: read
 
 jobs:
-  flutter-ci:
-    name: Flutter CI
+  pull-request-validation:
+    name: Pull Request Validation
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
     steps:
@@ -44,14 +45,8 @@ jobs:
       - name: Run tests
         run: flutter test
 
-      - name: Build release APK
-        run: flutter build apk --release
-
-      - name: Build release App Bundle
-        run: flutter build appbundle --release
-
-  debug-apk:
-    name: Debug APK (develop only)
+  develop-debug-apk:
+    name: Develop Debug APK
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
 
