@@ -1,7 +1,7 @@
 name: pureplay
 description: "PurePlay - a fast, offline local video and audio player for Android."
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -25,6 +25,11 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/logo.png
+    - assets/28410075-7c95-4b5e-a608-834b19e5baa1.jpg
+    - assets/3ca7ffd9-474a-495e-a2e2-2df430d09e63.jpg
+    - assets/7bd08913-9bd7-485f-bf3f-2714543a41b8.jpg
 
 flutter_launcher_icons:
   android: true
