@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../models/media_file.dart';
-import '../utils/constants.dart';
 
 class MediaScanner {
   static const MethodChannel _channel =
@@ -92,8 +91,7 @@ class MediaScanner {
         final typeString =
             map['type']?.toString() ?? '';
 
-        // IMPORTANT:
-        // Prefer MediaStore URI on modern Android.
+        // Prefer the MediaStore URI on modern Android.
         final mediaPath =
             uri.isNotEmpty ? uri : path;
 
