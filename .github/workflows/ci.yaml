@@ -45,7 +45,6 @@ jobs:
         run: flutter analyze
 
       - name: Run tests
-        if: ${{ hashFiles('test/**') != '' }}
         run: flutter test
 
       - name: Build release APK
