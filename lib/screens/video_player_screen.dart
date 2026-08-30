@@ -29,6 +29,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   late MediaFile _currentMedia;
 
   int _qualityMode = 0; // 0 original, 1 fit, 2 enhanced
+  bool _isSeeking = false;
 
   @override
   void initState() {
@@ -84,8 +85,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> _seekBySeconds(int seconds) async {
+    if (_isSeeking) {
+      return;
+    }
+
     final position = _player.state.position;
     final duration = _player.state.duration;
+
+    if (duration <= Duration.zero) {
+      return;
+    }
 
     var target = position + Duration(seconds: seconds);
 
@@ -93,11 +102,35 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       target = Duration.zero;
     }
 
-    if (duration > Duration.zero && target > duration) {
+    if (target > duration) {
       target = duration;
     }
 
-    await _player.seek(target);
+    final wasPlaying = _player.state.playing;
+
+    if (mounted) {
+      setState(() => _isSeeking = true);
+    }
+
+    try {
+      // On Android, explicitly pausing before an absolute seek and then
+      // resuming playback makes the video decoder/surface follow the new
+      // position reliably. A direct seek could update the audio clock while
+      // the video output continued displaying/loading the old frame.
+      if (wasPlaying) {
+        await _player.pause();
+      }
+
+      await _player.seek(target);
+
+      if (wasPlaying) {
+        await _player.play();
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSeeking = false);
+      }
+    }
   }
 
   @override
@@ -280,13 +313,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                           _navigationButton(
                             icon: Icons.replay_10_rounded,
                             label: '-10s',
-                            onPressed: () => _seekBySeconds(-10),
+                            onPressed: _isSeeking
+                                ? null
+                                : () => _seekBySeconds(-10),
                           ),
                           const SizedBox(width: 8),
                           _navigationButton(
                             icon: Icons.forward_10_rounded,
                             label: '+10s',
-                            onPressed: () => _seekBySeconds(10),
+                            onPressed: _isSeeking
+                                ? null
+                                : () => _seekBySeconds(10),
                           ),
                           const SizedBox(width: 8),
                           _navigationButton(
