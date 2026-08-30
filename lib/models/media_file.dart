@@ -5,6 +5,7 @@ class MediaFile {
     required this.path,
     required this.title,
     required this.folderName,
+    required this.relativePath,
     required this.sizeInBytes,
     required this.modifiedDate,
     required this.type,
@@ -13,6 +14,7 @@ class MediaFile {
   final String path;
   final String title;
   final String folderName;
+  final String relativePath;
   final int sizeInBytes;
   final DateTime modifiedDate;
   final MediaType type;
