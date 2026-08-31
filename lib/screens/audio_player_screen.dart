@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../models/media_file.dart';
 import '../services/audio_playback_service.dart';
+import '../services/media_scanner.dart';
 import '../utils/constants.dart';
 
 class AudioPlayerScreen extends StatefulWidget {
@@ -31,10 +32,29 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> {
   void initState() {
     super.initState();
     _handler = AudioPlaybackService.handler;
-    _playlist = widget.playlist.isEmpty
-        ? [widget.media]
-        : List<MediaFile>.unmodifiable(widget.playlist);
-    _initialIndex = widget.initialIndex.clamp(0, _playlist.length - 1).toInt();
+
+    final cachedAudio = MediaScanner.cachedMedia
+        .where((file) => file.type == MediaType.audio)
+        .toList(growable: false);
+
+    final suppliedPlaylist = widget.playlist.isEmpty
+        ? <MediaFile>[]
+        : List<MediaFile>.from(widget.playlist);
+
+    _playlist = suppliedPlaylist.isNotEmpty
+        ? List<MediaFile>.unmodifiable(suppliedPlaylist)
+        : cachedAudio.isNotEmpty
+            ? List<MediaFile>.unmodifiable(cachedAudio)
+            : [widget.media];
+
+    final requestedIndex = widget.playlist.isNotEmpty
+        ? widget.initialIndex
+        : _playlist.indexWhere((file) => file.path == widget.media.path);
+
+    _initialIndex = (requestedIndex < 0 ? 0 : requestedIndex)
+        .clamp(0, _playlist.length - 1)
+        .toInt();
+
     _loadPlaylist();
   }
 
