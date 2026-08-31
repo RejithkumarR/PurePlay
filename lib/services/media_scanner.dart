@@ -11,6 +11,8 @@ class MediaScanner {
   static const MethodChannel _channel =
       MethodChannel('com.pureplay.localplayer/media_scanner');
 
+  static List<MediaFile> cachedMedia = const [];
+
   static Future<bool> requestPermissions() async {
     if (!Platform.isAndroid) return true;
     final sdk = (await DeviceInfoPlugin().androidInfo).version.sdkInt;
@@ -26,7 +28,11 @@ class MediaScanner {
     if (!Platform.isAndroid) return [];
     try {
       final result = await _channel.invokeMethod<List<dynamic>>('scanMedia');
-      if (result == null || result.isEmpty) return [];
+      if (result == null || result.isEmpty) {
+        cachedMedia = const [];
+        return [];
+      }
+
       final mediaFiles = <MediaFile>[];
       final seen = <String>{};
 
@@ -67,6 +73,7 @@ class MediaScanner {
         );
       }
 
+      cachedMedia = List<MediaFile>.unmodifiable(mediaFiles);
       return mediaFiles;
     } on PlatformException catch (e) {
       debugPrint('PurePlay MediaStore error: ${e.code}: ${e.message}');
