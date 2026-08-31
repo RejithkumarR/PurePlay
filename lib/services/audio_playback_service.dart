@@ -14,7 +14,12 @@ class PurePlayAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandl
         mediaItem.add(items[index]);
       }
     });
-    _player.playerStateStream.listen((_) => _broadcastState(_player.playbackEvent));
+    _player.durationStream.listen((duration) {
+      final current = mediaItem.value;
+      if (current != null && duration != null) {
+        mediaItem.add(current.copyWith(duration: duration));
+      }
+    });
   }
 
   Future<void> setQueue(List<MediaFile> media, {int initialIndex = 0}) async {
@@ -24,19 +29,14 @@ class PurePlayAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandl
             id: file.path,
             title: file.title,
             album: file.folderName,
-            duration: null,
           ),
         )
         .toList(growable: false);
 
-    final sources = media
-        .map(
-          (file) => AudioSource.uri(
-            _toUri(file.path),
-            tag: items[media.indexOf(file)],
-          ),
-        )
-        .toList(growable: false);
+    final sources = <AudioSource>[];
+    for (var index = 0; index < media.length; index++) {
+      sources.add(AudioSource.uri(_toUri(media[index].path), tag: items[index]));
+    }
 
     queue.add(items);
     if (items.isEmpty) return;
@@ -111,14 +111,17 @@ class PurePlayAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandl
   Future<void> skipToPrevious() => _player.seekToPrevious();
 
   @override
-  Future<void> fastForward() => _player.seek(
-        _player.position + const Duration(seconds: 10),
-      );
+  Future<void> fastForward() async {
+    final duration = _player.duration ?? Duration.zero;
+    final target = _player.position + const Duration(seconds: 10);
+    await _player.seek(target > duration ? duration : target);
+  }
 
   @override
-  Future<void> rewind() => _player.seek(
-        _player.position - const Duration(seconds: 10),
-      );
+  Future<void> rewind() async {
+    final target = _player.position - const Duration(seconds: 10);
+    await _player.seek(target.isNegative ? Duration.zero : target);
+  }
 
   Future<void> dispose() => _player.dispose();
 }
