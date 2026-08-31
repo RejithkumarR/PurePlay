@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter/material.dart';
 
 import '../models/media_file.dart';
 import '../services/audio_playback_service.dart';
@@ -24,7 +24,7 @@ class AudioPlayerScreen extends StatefulWidget {
 class _AudioPlayerScreenState extends State<AudioPlayerScreen> {
   late final PurePlayAudioHandler _handler;
   late final List<MediaFile> _playlist;
-  late int _currentIndex;
+  late final int _initialIndex;
   bool _cleanMode = true;
 
   @override
@@ -34,20 +34,13 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> {
     _playlist = widget.playlist.isEmpty
         ? [widget.media]
         : List<MediaFile>.unmodifiable(widget.playlist);
-    _currentIndex = widget.initialIndex.clamp(0, _playlist.length - 1).toInt();
+    _initialIndex = widget.initialIndex.clamp(0, _playlist.length - 1).toInt();
     _loadPlaylist();
   }
 
   Future<void> _loadPlaylist() async {
-    await _handler.setQueue(_playlist, initialIndex: _currentIndex);
+    await _handler.setQueue(_playlist, initialIndex: _initialIndex);
     await _handler.play();
-  }
-
-  @override
-  void dispose() {
-    // Keep the audio service alive. This is intentional so playback continues
-    // when the user leaves the screen or puts the app in the background.
-    super.dispose();
   }
 
   String _time(Duration d) {
@@ -63,13 +56,15 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> {
       stream: _handler.mediaItem,
       builder: (context, mediaSnapshot) {
         final current = mediaSnapshot.data;
-        final title = current?.title ?? _playlist[_currentIndex].title;
-        final folder = current?.album ?? _playlist[_currentIndex].folderName;
+        final currentIndex = _playlist.indexWhere(
+          (file) => file.path == current?.id,
+        );
+        final safeIndex = currentIndex >= 0 ? currentIndex : _initialIndex;
+        final title = current?.title ?? _playlist[safeIndex].title;
+        final folder = current?.album ?? _playlist[safeIndex].folderName;
 
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('Audio Player'),
-          ),
+          appBar: AppBar(title: const Text('Audio Player')),
           body: StreamBuilder<PlaybackState>(
             stream: _handler.playbackState,
             builder: (context, stateSnapshot) {
@@ -147,8 +142,8 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> {
                       children: [
                         IconButton.filledTonal(
                           tooltip: 'Previous',
-                          onPressed: _currentIndex > 0
-                              ? () => _handler.skipToPrevious()
+                          onPressed: safeIndex > 0
+                              ? _handler.skipToPrevious
                               : null,
                           icon: const Icon(Icons.skip_previous_rounded),
                         ),
@@ -156,9 +151,9 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> {
                         IconButton.filled(
                           tooltip: 'Play / Pause',
                           iconSize: 58,
-                          onPressed: () => _handler.playbackState.value.playing
-                              ? _handler.pause()
-                              : _handler.play(),
+                          onPressed: state.playing
+                              ? _handler.pause
+                              : _handler.play,
                           icon: Icon(
                             state.playing
                                 ? Icons.pause_rounded
@@ -168,8 +163,8 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> {
                         const SizedBox(width: 18),
                         IconButton.filledTonal(
                           tooltip: 'Next',
-                          onPressed: _currentIndex < _playlist.length - 1
-                              ? () => _handler.skipToNext()
+                          onPressed: safeIndex < _playlist.length - 1
+                              ? _handler.skipToNext
                               : null,
                           icon: const Icon(Icons.skip_next_rounded),
                         ),
