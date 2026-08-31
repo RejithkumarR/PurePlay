@@ -46,13 +46,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> _openCurrentVideo({Duration? startAt, bool? play}) async {
-    await _player.open(Media(_currentMedia.path), play: play ?? true);
-    if (startAt != null && startAt > Duration.zero) {
-      await _player.seek(startAt);
-      if (play == false) {
-        await _player.pause();
-      }
-    }
+    final media = startAt != null
+        ? Media(_currentMedia.path, start: startAt)
+        : Media(_currentMedia.path);
+    await _player.open(media, play: play ?? true);
   }
 
   Future<void> _playNext() async {
@@ -88,20 +85,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (mounted) setState(() => _isSeeking = true);
 
     try {
-      // Re-opening the local media forces Android's video decoder and surface
-      // to start from the requested timestamp. This avoids the regression
-      // where the audio clock seeks but the video surface remains at its old
-      // frame while the reported position briefly resets.
-      await _player.open(Media(_currentMedia.path), play: false);
-      await _player.seek(target);
-
-      // Give the decoder a chance to render the first frame at the new
-      // position before resuming playback.
-      if (wasPlaying) {
-        await _player.play();
-      } else {
-        await _player.pause();
-      }
+      // Reopen the media with Media.start so the native decoder is initialized
+      // at the target timestamp. This avoids the Android regression where the
+      // audio clock seeks but the video surface remains at the old frame or
+      // resets to zero.
+      await _player.open(
+        Media(_currentMedia.path, start: target),
+        play: wasPlaying,
+      );
     } finally {
       if (mounted) setState(() => _isSeeking = false);
     }
