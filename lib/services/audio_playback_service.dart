@@ -132,7 +132,7 @@ class AudioPlaybackService {
   static Future<void> initialize() async {
     handler = await AudioService.init(
       builder: () => PurePlayAudioHandler(),
-      config: const AudioServiceConfig(
+      config: AudioServiceConfig(
         androidNotificationChannelId: 'com.pureplay.localplayer.audio',
         androidNotificationChannelName: 'PurePlay Audio Playback',
         androidNotificationOngoing: true,
