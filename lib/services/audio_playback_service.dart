@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -5,6 +7,7 @@ import '../models/media_file.dart';
 
 class PurePlayAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   final AudioPlayer _player = AudioPlayer();
+  List<MediaFile> _queueFiles = const [];
 
   PurePlayAudioHandler() {
     _player.playbackEventStream.listen(_broadcastState);
@@ -22,33 +25,52 @@ class PurePlayAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandl
     });
   }
 
-  Future<void> setQueue(List<MediaFile> media, {int initialIndex = 0}) async {
-    final items = media
-        .map(
-          (file) => MediaItem(
-            id: file.path,
-            title: file.title,
-            album: file.folderName,
-          ),
-        )
-        .toList(growable: false);
+  List<MediaFile> get queueFiles => List<MediaFile>.unmodifiable(_queueFiles);
 
+  Future<void> setQueue(List<MediaFile> media, {int initialIndex = 0}) async {
+    _queueFiles = List<MediaFile>.unmodifiable(media);
+    final items = _queueFiles.map(_toMediaItem).toList(growable: false);
     final sources = <AudioSource>[];
-    for (var index = 0; index < media.length; index++) {
-      sources.add(AudioSource.uri(_toUri(media[index].path), tag: items[index]));
+    for (var index = 0; index < _queueFiles.length; index++) {
+      sources.add(AudioSource.uri(_toUri(_queueFiles[index].path), tag: items[index]));
     }
 
     queue.add(items);
     if (items.isEmpty) return;
 
     final safeIndex = initialIndex.clamp(0, items.length - 1).toInt();
-    await _player.setAudioSources(
-      sources,
-      initialIndex: safeIndex,
-      preload: true,
-    );
+    await _player.setAudioSources(sources, initialIndex: safeIndex, preload: true);
     mediaItem.add(items[safeIndex]);
   }
+
+  Future<void> playQueueIndex(int index) async {
+    if (index < 0 || index >= _queueFiles.length) return;
+    await _player.seek(Duration.zero, index: index);
+    await _player.play();
+  }
+
+  Future<void> shuffleQueue() async {
+    if (_queueFiles.length < 2) return;
+
+    final currentPath = _queueFiles[_player.currentIndex ?? 0].path;
+    final currentPosition = _player.position;
+    final wasPlaying = _player.playing;
+    final shuffled = [..._queueFiles]..shuffle(Random());
+
+    final currentIndex = shuffled.indexWhere((file) => file.path == currentPath);
+    final current = shuffled.removeAt(currentIndex);
+    shuffled.insert(0, current);
+
+    await setQueue(shuffled, initialIndex: 0);
+    await _player.seek(currentPosition);
+    if (wasPlaying) await _player.play();
+  }
+
+  MediaItem _toMediaItem(MediaFile file) => MediaItem(
+        id: file.path,
+        title: file.title,
+        album: file.folderName,
+      );
 
   Uri _toUri(String value) {
     final uri = Uri.tryParse(value);
@@ -127,20 +149,36 @@ class PurePlayAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandl
 }
 
 class AudioPlaybackService {
-  static late final PurePlayAudioHandler handler;
+  static PurePlayAudioHandler? _handler;
+  static Future<PurePlayAudioHandler>? _initialization;
 
-  static Future<void> initialize() async {
-    handler = await AudioService.init(
-      builder: () => PurePlayAudioHandler(),
-      config: AudioServiceConfig(
-        androidNotificationChannelId: 'com.pureplay.localplayer.audio',
-        androidNotificationChannelName: 'PurePlay Audio Playback',
-        androidNotificationOngoing: true,
-        androidStopForegroundOnPause: false,
-        androidNotificationIcon: 'mipmap/ic_launcher',
-        rewindInterval: Duration(seconds: 10),
-        fastForwardInterval: Duration(seconds: 10),
-      ),
-    );
+  static PurePlayAudioHandler? get handlerOrNull => _handler;
+
+  static Future<PurePlayAudioHandler> initialize() {
+    final existing = _handler;
+    if (existing != null) return Future.value(existing);
+    return _initialization ??= _initialize();
+  }
+
+  static Future<PurePlayAudioHandler> _initialize() async {
+    try {
+      final handler = await AudioService.init(
+        builder: () => PurePlayAudioHandler(),
+        config: AudioServiceConfig(
+          androidNotificationChannelId: 'com.pureplay.localplayer.audio',
+          androidNotificationChannelName: 'PurePlay Audio Playback',
+          androidNotificationOngoing: true,
+          androidStopForegroundOnPause: false,
+          androidNotificationIcon: 'mipmap/ic_launcher',
+          rewindInterval: const Duration(seconds: 10),
+          fastForwardInterval: const Duration(seconds: 10),
+        ),
+      );
+      _handler = handler;
+      return handler;
+    } catch (_) {
+      _initialization = null;
+      rethrow;
+    }
   }
 }
