@@ -16,6 +16,21 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        ciDebug {
+            storeFile = file("../ci/pureplay-ci-debug.jks")
+            storePassword = "pureplay"
+            keyAlias = "pureplay-debug"
+            keyPassword = "pureplay"
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig = signingConfigs.ciDebug
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
