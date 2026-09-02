@@ -1,7 +1,7 @@
 name: pureplay
 description: "PurePlay - a fast, offline local video and audio player for Android."
 publish_to: 'none'
-version: 1.0.2+3
+version: 1.0.2+4
 
 environment:
   sdk: '>=3.3.0 <4.0.0'

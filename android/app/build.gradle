@@ -4,6 +4,15 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// Keep debug APK signatures stable so a newer PurePlay APK can update an
+// existing CI/local debug installation instead of being rejected by Android.
+def ciKeystore = file("../ci/pureplay-ci-debug.jks")
+def ciKeystoreB64 = file("../ci/pureplay-ci-debug.b64")
+if (!ciKeystore.exists() && ciKeystoreB64.exists()) {
+    ciKeystore.parentFile.mkdirs()
+    ciKeystore.bytes = java.util.Base64.decoder.decode(ciKeystoreB64.text.trim())
+}
+
 android {
     namespace = "com.pureplay.localplayer"
     compileSdk = flutter.compileSdkVersion
@@ -14,6 +23,21 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    signingConfigs {
+        ciDebug {
+            storeFile = ciKeystore
+            storePassword = "pureplay"
+            keyAlias = "pureplay-debug"
+            keyPassword = "pureplay"
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig = signingConfigs.ciDebug
+        }
     }
 
     compileOptions {
