@@ -69,12 +69,18 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Prepare stable CI signing key
+        shell: bash
+        run: |
+          mkdir -p android/ci
+          base64 --decode android/ci/pureplay-ci-debug.b64 > android/ci/pureplay-ci-debug.jks
+
       - name: Build debug APK
         run: flutter build apk --debug
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pureplay-debug-apk
+          name: pureplay-debug-apk-v${{ github.sha }}
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
