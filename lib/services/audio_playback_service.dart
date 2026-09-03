@@ -167,7 +167,7 @@ class AudioPlaybackService {
         config: AudioServiceConfig(
           androidNotificationChannelId: 'com.pureplay.localplayer.audio',
           androidNotificationChannelName: 'PurePlay Audio Playback',
-          androidNotificationOngoing: true,
+          androidNotificationOngoing: false,
           androidStopForegroundOnPause: false,
           androidNotificationIcon: 'mipmap/ic_launcher',
           rewindInterval: const Duration(seconds: 10),
