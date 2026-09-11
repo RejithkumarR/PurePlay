@@ -93,12 +93,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     try {
       final results = await _onlineSubtitleService.search(fileName: _currentMedia.title);
       if (!mounted || results.isEmpty) return;
-      // Prefer an exact-looking first result. The provider returns release-aware
-      // results and the user can still select another subtitle from the menu.
       await _applySubtitle(await _onlineSubtitleService.download(results.first));
     } catch (_) {
-      // Online subtitle discovery is a fallback; playback must never fail because
-      // the remote provider is unavailable or not configured.
+      // Online subtitle discovery is optional and must never block playback.
     }
   }
 
@@ -161,24 +158,33 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         language: subtitle.language,
       ),
     );
-    if (mounted) {
-      setState(() => _activeExternalSubtitle = subtitle);
-    }
+    if (mounted) setState(() => _activeExternalSubtitle = subtitle);
   }
 
   Future<void> _pickSubtitleFile() async {
-    final file = await FilePicker.pickFile();
-    if (file == null) return;
-
-    final bytes = await file.readAsBytes();
-    final data = utf8.decode(bytes, allowMalformed: true);
-    final subtitle = SubtitleTrackInfo(
-      title: file.name,
-      language: null,
-      data: data,
-      source: SubtitleSource.local,
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['srt', 'ass', 'ssa', 'vtt', 'sub'],
+      withData: true,
     );
-    await _applySubtitle(subtitle);
+    if (result == null || result.files.isEmpty) return;
+
+    final file = result.files.first;
+    final bytes = file.bytes;
+    if (bytes == null) {
+      _showMessage('Unable to read the selected subtitle file.');
+      return;
+    }
+
+    final data = utf8.decode(bytes, allowMalformed: true);
+    await _applySubtitle(
+      SubtitleTrackInfo(
+        title: file.name,
+        language: null,
+        data: data,
+        source: SubtitleSource.local,
+      ),
+    );
   }
 
   Future<void> _showAudioTracks() async {
@@ -397,7 +403,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         mediaPath: _currentMedia.path,
         language: language,
         model: WhisperModel.base,
-        onProgress: (progress) {
+        onProgress: (_) {
           if (mounted) setState(() {});
         },
       );
