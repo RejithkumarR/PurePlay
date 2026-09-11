@@ -35,53 +35,56 @@ class OnlineSubtitleService {
     }
 
     final query = <String, String>{
-      'api_key': _apiKey,
       'file_name': fileName,
-      'languages': (language ?? 'EN').toUpperCase(),
+      'languages': (language ?? 'EN').toLowerCase(),
       'unpack': '1',
-      'releases': '1',
-      'client': 'subdl_player',
       if (year != null) 'year': '$year',
     };
 
-    final uri = Uri.https('api.subdl.com', '/api/v1/subtitles', query);
-    final response = await http.get(uri, headers: const {'Accept': 'application/json'});
+    final uri = Uri.https('api.subdl.com', '/api/v2/subtitles/search', query);
+    final response = await http.get(
+      uri,
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $_apiKey',
+      },
+    );
     if (response.statusCode != 200) {
       throw StateError('Subtitle search failed (${response.statusCode}).');
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
-    if (json['status'] != true) {
+    if (json['status'] == false) {
       throw StateError((json['error'] ?? 'Subtitle search failed').toString());
     }
 
     final subtitles = (json['subtitles'] as List<dynamic>? ?? const []);
     final results = <OnlineSubtitleResult>[];
     for (final raw in subtitles) {
-      final subtitle = raw as Map<String, dynamic>;
-      final unpackFiles = subtitle['unpack_files'] as List<dynamic>?;
+      if (raw is! Map<String, dynamic>) continue;
+      final unpackFiles = raw['unpack_files'] as List<dynamic>?;
       if (unpackFiles != null && unpackFiles.isNotEmpty) {
         for (final rawFile in unpackFiles) {
-          final file = rawFile as Map<String, dynamic>;
-          final url = _absoluteDownloadUrl(file['url']?.toString());
+          if (rawFile is! Map<String, dynamic>) continue;
+          final url = _absoluteDownloadUrl(rawFile['url']?.toString());
           if (url == null) continue;
           results.add(
             OnlineSubtitleResult(
-              title: file['name']?.toString() ?? 'Subtitle',
-              language: file['language']?.toString(),
-              releaseName: file['release_name']?.toString(),
+              title: rawFile['name']?.toString() ?? 'Subtitle',
+              language: rawFile['language']?.toString(),
+              releaseName: rawFile['release_name']?.toString(),
               downloadUrl: url,
             ),
           );
         }
       } else {
-        final url = _absoluteDownloadUrl(subtitle['url']?.toString());
+        final url = _absoluteDownloadUrl(raw['url']?.toString());
         if (url == null) continue;
         results.add(
           OnlineSubtitleResult(
-            title: subtitle['name']?.toString() ?? 'Subtitle',
-            language: subtitle['language']?.toString(),
-            releaseName: subtitle['release_name']?.toString(),
+            title: raw['name']?.toString() ?? 'Subtitle',
+            language: raw['language']?.toString(),
+            releaseName: raw['release_name']?.toString(),
             downloadUrl: url,
           ),
         );
