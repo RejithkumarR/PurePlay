@@ -331,7 +331,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       builder: (context) => SimpleDialog(
         title: const Text('Subtitle language'),
         children: [
-          for (final item in const {'EN': 'English', 'TA': 'Tamil', 'ML': 'Malayalam', 'HI': 'Hindi'})
+          for (final item in const {'EN': 'English', 'TA': 'Tamil', 'ML': 'Malayalam', 'HI': 'Hindi'}.entries)
             SimpleDialogOption(
               onPressed: () => Navigator.pop(context, item.key),
               child: Text(item.value),
@@ -387,7 +387,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       builder: (context) => SimpleDialog(
         title: const Text('Transcription language'),
         children: [
-          for (final item in const {'auto': 'Auto detect', 'en': 'English', 'ta': 'Tamil', 'ml': 'Malayalam', 'hi': 'Hindi'})
+          for (final item in const {'auto': 'Auto detect', 'en': 'English', 'ta': 'Tamil', 'ml': 'Malayalam', 'hi': 'Hindi'}.entries)
             SimpleDialogOption(
               onPressed: () => Navigator.pop(context, item.key),
               child: Text(item.value),
