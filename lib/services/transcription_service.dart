@@ -9,7 +9,7 @@ class TranscriptionService {
     required String mediaPath,
     String language = 'auto',
     WhisperModel model = WhisperModel.base,
-    void Function(double progress)? onProgress,
+    void Function(int progress)? onProgress,
   }) async {
     if (mediaPath.isEmpty || mediaPath.startsWith('content://')) {
       throw StateError('The selected video does not expose a filesystem path for transcription.');
@@ -29,7 +29,7 @@ class TranscriptionService {
     }
 
     final segments = result.transcription.segments;
-    if (segments.isEmpty) {
+    if (segments == null || segments.isEmpty) {
       final text = result.transcription.text.trim();
       if (text.isEmpty) throw StateError('No speech was detected.');
       return SubtitleTrackInfo(
