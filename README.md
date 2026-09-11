@@ -13,13 +13,51 @@ PurePlay is an Android-first Flutter media player designed for **local files onl
 - Previous / next video navigation
 - 10-second forward and backward seeking
 - Original / Fit / Enhanced display modes
+- Embedded and external subtitle selection
+- Automatic matching of nearby `.srt`, `.ass`, `.ssa`, `.vtt` and `.sub` subtitle files
+- Manual subtitle file loading
+- Optional online subtitle search/download through SubDL
+- On-device Whisper transcription that can generate timestamped subtitles when no subtitle file exists
+- Audio-track / language switching when a video contains multiple audio tracks
 - Audio player with seek and playback controls
 - Favorites
 - Search by file name and folder path
 - Pull-to-refresh/rescan
 - Android back navigation with clean folder/player navigation
 - PurePlay logo and purple/cyan visual identity throughout the application
-- No account, cloud service, streaming service, advertising, or analytics
+- No account, streaming service, advertising, or analytics
+
+## Subtitle and audio features
+
+The video player now exposes **Audio** and **CC/Subtitles** controls.
+
+Subtitle priority is:
+
+1. Embedded subtitle tracks in the media file
+2. Matching local subtitle files beside the video
+3. Optional online subtitle search when SubDL is configured
+4. Local Whisper transcription when no usable subtitle is available
+
+The player can also switch between all audio tracks reported by `media_kit`, including tracks labelled with language metadata.
+
+### Online subtitle search
+
+SubDL search requires an API key. Configure it at build time without committing the key to the repository:
+
+```bash
+flutter run --dart-define=SUBDL_API_KEY=YOUR_KEY
+flutter build apk --release --dart-define=SUBDL_API_KEY=YOUR_KEY
+```
+
+For a public production application, a backend/proxy is recommended instead of embedding a provider API key in a distributed mobile application because client-side keys can be extracted.
+
+### Generate subtitles from audio
+
+PurePlay uses `whisper_ggml` for on-device speech-to-text. The video/audio file is processed locally and Whisper segments are converted into timestamped SRT data, then attached directly to `media_kit` without requiring a pre-existing SRT file or a transcription server.
+
+The first transcription may download/cache the selected Whisper model. The default implementation uses the multilingual `base` model and supports automatic language detection plus common manual choices such as English, Tamil, Malayalam and Hindi.
+
+Whisper transcription requires Dart 3.7+.
 
 ## Folder browser
 
@@ -76,7 +114,7 @@ The current audio player does not claim to perform true recorded-noise removal. 
 
 - Android 13+: `READ_MEDIA_VIDEO` and `READ_MEDIA_AUDIO`
 - Android 12 and below: `READ_EXTERNAL_STORAGE`
-- Network access is not used for media discovery or playback.
+- Network access is only used for optional online subtitle search/download; local media discovery and playback remain local.
 
 ## Build
 
@@ -119,6 +157,10 @@ Flutter UI
    |      +-- File Operations
    |
    +-- Video Player
+   |      +-- Audio track selection
+   |      +-- Embedded/local/online subtitles
+   |      +-- Whisper audio-to-subtitle generation
+   |
    +-- Audio Player
    |
    +-- MediaScanner
@@ -148,4 +190,4 @@ The development workflow is intentionally Pull Request based: changes are review
 App name: **PurePlay**  
 Application ID: `com.pureplay.localplayer`
 
-This project is intentionally offline-first and does not include analytics, advertising, login, cloud synchronization, or streaming services.
+This project remains offline-first for local media. Online subtitle lookup is an explicit optional feature and can be disabled simply by omitting the SubDL API key.
