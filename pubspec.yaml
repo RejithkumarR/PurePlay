@@ -19,7 +19,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   just_audio: ^0.10.6
   audio_service: ^0.18.19
-  file_picker: ^11.0.3
+  file_picker: ^10.2.0
   http: ^1.6.0
   path: ^1.9.1
   whisper_ggml: ^2.6.0
